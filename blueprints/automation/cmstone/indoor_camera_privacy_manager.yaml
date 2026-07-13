@@ -221,9 +221,14 @@ action:
               trigger_from: "{{ base_trigger_from }}"
               trigger_to: "{{ base_trigger_to }}"
               notification_timestamp: "{{ base_notification_timestamp }}"
-              notification_message: >
-                Privacy disabled and recording enabled because vacation mode is active.
-                Trigger: {{ trigger_name }}{% if trigger_entity %} ({{ trigger_entity }}){% endif %}.
+              notification_message: |
+                Privacy: Disabled
+                Recording: Enabled
+                Reason: Vacation mode is active
+
+                Trigger: {{ trigger_name }}{% if trigger_entity %} ({{ trigger_entity }}){% endif %}
+                {% if trigger_from or trigger_to %}State: {{ trigger_from | default('unknown', true) }} → {{ trigger_to | default('unknown', true) }}
+                {% endif %}Time: {{ notification_timestamp }}
           - choose: []
             default: !input notification_action
 
@@ -247,9 +252,14 @@ action:
               trigger_from: "{{ base_trigger_from }}"
               trigger_to: "{{ base_trigger_to }}"
               notification_timestamp: "{{ base_notification_timestamp }}"
-              notification_message: >
-                Privacy enabled because guest mode is active.
-                Trigger: {{ trigger_name }}{% if trigger_entity %} ({{ trigger_entity }}){% endif %}.
+              notification_message: |
+                Privacy: Enabled
+                Recording: Disabled
+                Reason: Guest mode is active
+
+                Trigger: {{ trigger_name }}{% if trigger_entity %} ({{ trigger_entity }}){% endif %}
+                {% if trigger_from or trigger_to %}State: {{ trigger_from | default('unknown', true) }} → {{ trigger_to | default('unknown', true) }}
+                {% endif %}Time: {{ notification_timestamp }}
           - choose: []
             default: !input notification_action
 
@@ -273,9 +283,14 @@ action:
               trigger_from: "{{ base_trigger_from }}"
               trigger_to: "{{ base_trigger_to }}"
               notification_timestamp: "{{ base_notification_timestamp }}"
-              notification_message: >
-                Privacy disabled and recording enabled because sleep mode is active.
-                Trigger: {{ trigger_name }}{% if trigger_entity %} ({{ trigger_entity }}){% endif %}.
+              notification_message: |
+                Privacy: Disabled
+                Recording: Enabled
+                Reason: Sleep mode is active
+
+                Trigger: {{ trigger_name }}{% if trigger_entity %} ({{ trigger_entity }}){% endif %}
+                {% if trigger_from or trigger_to %}State: {{ trigger_from | default('unknown', true) }} → {{ trigger_to | default('unknown', true) }}
+                {% endif %}Time: {{ notification_timestamp }}
           - choose: []
             default: !input notification_action
 
@@ -299,9 +314,14 @@ action:
               trigger_from: "{{ base_trigger_from }}"
               trigger_to: "{{ base_trigger_to }}"
               notification_timestamp: "{{ base_notification_timestamp }}"
-              notification_message: >
-                Privacy enabled because at least one selected presence entity is present and the household is awake.
-                Trigger: {{ trigger_name }}{% if trigger_entity %} ({{ trigger_entity }}){% endif %}.
+              notification_message: |
+                Privacy: Enabled
+                Recording: Disabled
+                Reason: Someone is present and the household is awake
+
+                Trigger: {{ trigger_name }}{% if trigger_entity %} ({{ trigger_entity }}){% endif %}
+                {% if trigger_from or trigger_to %}State: {{ trigger_from | default('unknown', true) }} → {{ trigger_to | default('unknown', true) }}
+                {% endif %}Time: {{ notification_timestamp }}
           - choose: []
             default: !input notification_action
 
@@ -334,8 +354,13 @@ action:
               trigger_from: "{{ base_trigger_from }}"
               trigger_to: "{{ base_trigger_to }}"
               notification_timestamp: "{{ base_notification_timestamp }}"
-              notification_message: >
-                Privacy disabled and recording enabled because all selected presence entities are absent.
-                Trigger: {{ trigger_name }}{% if trigger_entity %} ({{ trigger_entity }}){% endif %}.
+              notification_message: |
+                Privacy: Disabled
+                Recording: Enabled
+                Reason: All selected presence entities are absent
+
+                Trigger: {{ trigger_name }}{% if trigger_entity %} ({{ trigger_entity }}){% endif %}
+                {% if trigger_from or trigger_to %}State: {{ trigger_from | default('unknown', true) }} → {{ trigger_to | default('unknown', true) }}
+                {% endif %}Time: {{ notification_timestamp }}
           - choose: []
             default: !input notification_action
