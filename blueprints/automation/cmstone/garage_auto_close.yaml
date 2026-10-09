@@ -3,7 +3,8 @@ blueprint:
   description: >
     Auto-close a garage door after a visible timer expires. Activity sensors
     reset the timer. Obstruction sensors prevent closing and can trigger the
-    same optional notification action.
+    same optional notification action. A hold-open helper pauses auto-close
+    indefinitely and can send a repeating reminder while the door stays open.
   domain: automation
 
   input:
@@ -43,6 +44,31 @@ blueprint:
         entity:
           domain: timer
 
+    hold_open_helper:
+      name: Hold Open Helper
+      description: >
+        An input_boolean. While on, auto-close is paused and the door is held
+        open indefinitely. Turn it off to resume auto-close. Expose it as a
+        dashboard toggle, or flip it from a physical button.
+      selector:
+        entity:
+          domain: input_boolean
+
+    hold_reminder_minutes:
+      name: Hold Open Reminder (minutes)
+      description: >
+        While the door is held open, run the notification action if it is
+        still open after this many minutes, then repeat every interval until
+        it is released or closed. Set to 0 to disable the reminder.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 1440
+          step: 1
+          unit_of_measurement: minutes
+          mode: box
+
     notification_action:
       name: Notification Action
       description: >
@@ -75,18 +101,77 @@ trigger:
       entity_id: !input auto_close_timer
     id: timer_finished
 
+  - platform: state
+    entity_id: !input hold_open_helper
+    to: "on"
+    id: hold_engaged
+
+  - platform: state
+    entity_id: !input hold_open_helper
+    to: "off"
+    id: hold_released
+
 condition: []
 
 variables:
   garage_name: !input garage_name
+  hold_entity: !input hold_open_helper
+  hold_active: "{{ is_state(hold_entity, 'on') }}"
+  reminder_minutes: !input hold_reminder_minutes
+  reminder_enabled: "{{ (reminder_minutes | int(0)) > 0 }}"
 
 action:
   - choose:
+      # Door opened or activity while NOT held: start the normal auto-close
+      # countdown using the timer helper's configured duration.
       - conditions:
           - condition: trigger
             id:
               - door_opened
               - activity_detected
+          - condition: state
+            entity_id: !input garage_door
+            state: "open"
+          - condition: template
+            value_template: "{{ not hold_active }}"
+        sequence:
+          - service: timer.start
+            target:
+              entity_id: !input auto_close_timer
+
+      # Door opened while held, or the hold was just engaged. Activity is
+      # intentionally ignored here so the reminder measures absolute open time.
+      # Start a repeating reminder countdown, or cancel any pending auto-close
+      # when the reminder is disabled.
+      - conditions:
+          - condition: trigger
+            id:
+              - door_opened
+              - hold_engaged
+          - condition: state
+            entity_id: !input garage_door
+            state: "open"
+          - condition: template
+            value_template: "{{ hold_active }}"
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ reminder_enabled }}"
+            then:
+              - service: timer.start
+                target:
+                  entity_id: !input auto_close_timer
+                data:
+                  duration: "{{ (reminder_minutes | int(0)) * 60 }}"
+            else:
+              - service: timer.cancel
+                target:
+                  entity_id: !input auto_close_timer
+
+      # Hold released while the door is still open: resume normal auto-close.
+      - conditions:
+          - condition: trigger
+            id: hold_released
           - condition: state
             entity_id: !input garage_door
             state: "open"
@@ -103,12 +188,39 @@ action:
             target:
               entity_id: !input auto_close_timer
 
+      # Reminder interval elapsed while held: notify, then repeat.
       - conditions:
           - condition: trigger
             id: timer_finished
           - condition: state
             entity_id: !input garage_door
             state: "open"
+          - condition: template
+            value_template: "{{ hold_active }}"
+        sequence:
+          - variables:
+              notification_message: >
+                {{ garage_name }} is being held open and is still open.
+          - sequence: !input notification_action
+          - if:
+              - condition: template
+                value_template: "{{ reminder_enabled }}"
+            then:
+              - service: timer.start
+                target:
+                  entity_id: !input auto_close_timer
+                data:
+                  duration: "{{ (reminder_minutes | int(0)) * 60 }}"
+
+      # Auto-close countdown elapsed while NOT held: close unless obstructed.
+      - conditions:
+          - condition: trigger
+            id: timer_finished
+          - condition: state
+            entity_id: !input garage_door
+            state: "open"
+          - condition: template
+            value_template: "{{ not hold_active }}"
         sequence:
           - choose:
               - conditions:

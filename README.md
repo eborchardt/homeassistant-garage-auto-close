@@ -24,7 +24,9 @@ Privacy is enabled when any selected presence entity is present and the househol
 - Uses an existing Home Assistant `timer` helper for visible countdown state
 - Activity sensors reset/restart the timer while the garage door is open
 - Obstruction sensors block auto-close when active
-- Optional notification action for both obstruction and successful auto-close events
+- Hold-open helper pauses auto-close indefinitely until it is turned off
+- Optional repeating reminder while the door is held open
+- Optional notification action for obstruction, successful auto-close, and hold-open reminder events
 - Works with standard Home Assistant `cover` entities, including garage door integrations such as ratgdo
 
 ### Indoor Camera Privacy Manager
@@ -87,6 +89,66 @@ Create a timer helper before using the garage auto-close blueprint:
 4. Select that helper in the blueprint automation.
 
 The blueprint starts this timer whenever the door opens or activity is detected while the door remains open.
+
+## Garage Auto Close hold-open
+
+The blueprint requires an `input_boolean` helper that holds the door open:
+
+1. Go to **Settings → Devices & services → Helpers**.
+2. Create a **Toggle** (`input_boolean`) helper, for example `Garage Hold Open`.
+3. Select it as the **Hold Open Helper** in the blueprint automation.
+
+While the helper is **on**, auto-close is paused and the door stays open
+indefinitely. Turn it **off** to resume auto-close; if the door is still open
+at that point the countdown restarts. Expose the helper as a dashboard toggle,
+or flip it from a physical button with your own automation.
+
+Set **Hold Open Reminder (minutes)** above `0` to run the notification action
+when the door is still open that many minutes after the hold engaged, repeating
+every interval until the hold is released or the door closes. Activity sensors
+do not reset this reminder, so it measures the absolute time the door has been
+open. Leave it at `0` to disable the reminder.
+
+> Upgrading from an earlier version: the **Hold Open Helper** is a new required
+> input. After updating the blueprint, open the automation and select the
+> helper, or the automation will report a missing input.
+
+### Driving the hold from a button
+
+The hold state lives in the `input_boolean`, because a button entity is
+momentary and cannot hold state. To control it from a button, point the button
+at the helper.
+
+On a dashboard, a toggle or button card targeting the helper is enough:
+
+```yaml
+type: button
+entity: input_boolean.garage_hold_open
+name: Hold Garage Open
+icon: mdi:garage-alert
+tap_action:
+  action: toggle
+```
+
+To drive it from a physical button (any device that exposes a `button`,
+`binary_sensor`, or event), add a small automation that toggles the helper:
+
+```yaml
+alias: Garage hold-open button
+trigger:
+  - platform: state
+    entity_id: binary_sensor.garage_hold_button
+    to: "on"
+action:
+  - service: input_boolean.toggle
+    target:
+      entity_id: input_boolean.garage_hold_open
+mode: single
+```
+
+Replace the entity IDs with your own. Use `input_boolean.turn_on` instead of
+`toggle` if you want the button to only engage the hold and rely on release
+elsewhere.
 
 ## Indoor Camera Privacy Manager inputs
 
@@ -169,6 +231,7 @@ The same notification action is used for:
 
 - Auto-close prevented by obstruction
 - Garage door automatically closed
+- Garage door still held open (reminder interval)
 
 ## Safety note
 
